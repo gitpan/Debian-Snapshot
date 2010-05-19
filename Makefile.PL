@@ -23,11 +23,10 @@ my %WriteMakefileArgs = (
                                            },
                        'ABSTRACT' => 'interface to snapshot.debian.org',
                        'EXE_FILES' => [],
-                       'VERSION' => '0.001',
+                       'VERSION' => '0.002',
                        'PREREQ_PM' => {
                                         'LWP::UserAgent' => '0',
                                         'MooseX::StrictConstructor' => '0',
-                                        'IO::File' => '0',
                                         'namespace::autoclean' => '0',
                                         'File::Spec' => '0',
                                         'MooseX::Params::Validate' => '0',

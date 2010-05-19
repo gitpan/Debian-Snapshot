@@ -1,6 +1,6 @@
 package Debian::Snapshot;
 BEGIN {
-  $Debian::Snapshot::VERSION = '0.001';
+  $Debian::Snapshot::VERSION = '0.002';
 }
 # ABSTRACT: interface to snapshot.debian.org
 
@@ -58,7 +58,10 @@ sub binaries {
 	                        ->binary($_->{name}, $_->{binary_version}),
 	                   @{ $json->{result} };
 
-	@binaries = grep $_->binary_version eq $version, @binaries if defined $version;
+	if (defined $version) {
+		$version = qr/^\Q$version\E$/ unless ref($version) eq 'Regexp';
+		@binaries = grep $_->binary_version =~ $version, @binaries;
+	}
 
 	return \@binaries;
 }
@@ -110,9 +113,22 @@ Debian::Snapshot - interface to snapshot.debian.org
 
 =head1 VERSION
 
-version 0.001
+version 0.002
 
 =head1 SYNOPSIS
+
+  use Debian::Snapshot;
+  my $s = Debian::Snapshot->new;
+
+  my $p = $s->package("package", "version"); # see Debian::Snapshot::Package
+  my @package_names   = @{ $s->packages };
+  my @source_versions = @{ $s->package_versions("source-package") };
+
+  my @bs = @{ $s->binaries("binary") };      # see Debian::Snapshot::Binary
+
+  my $f = $s->file($sha1hash);               # see Debian::Snapshot::File
+
+=head1 DESCRIPTION
 
 This module provides an interface to the snapshot.debian.org service.
 
@@ -135,7 +151,8 @@ Returns an arrayref of L<Debian::Snapshot::Binary|Debian::Snapshot::Binary>
 object for the binary package named C<$name>.
 
 If the optional parameter C<$version> is present, only return binaries whose
-binary version matches C<$version>.
+binary version matches C<$version> which might be either a string or a regular
+expression.
 
 =head2 file($hash)
 

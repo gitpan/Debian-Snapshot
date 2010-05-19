@@ -4,6 +4,8 @@ META.yml
 Makefile.PL
 README
 dist.ini
+eg/download-binary.pl
+eg/download-source.pl
 lib/Debian/Snapshot.pm
 lib/Debian/Snapshot/Binary.pm
 lib/Debian/Snapshot/File.pm

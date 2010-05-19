@@ -15,7 +15,6 @@ name: Debian-Snapshot
 recommends: {}
 requires:
   File::Spec: 0
-  IO::File: 0
   JSON: 0
   LWP::UserAgent: 0
   Moose: 0
@@ -24,4 +23,4 @@ requires:
   namespace::autoclean: 0
 resources:
   repository: git://github.com/aburch/Debian-Snapshot.git
-version: 0.001
+version: 0.002

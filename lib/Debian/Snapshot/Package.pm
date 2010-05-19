@@ -1,10 +1,11 @@
 package Debian::Snapshot::Package;
 BEGIN {
-  $Debian::Snapshot::Package::VERSION = '0.001';
+  $Debian::Snapshot::Package::VERSION = '0.002';
 }
 # ABSTRACT: information about a source package
 
 use Moose;
+use MooseX::Params::Validate;
 use MooseX::StrictConstructor;
 use namespace::autoclean;
 
@@ -28,6 +29,28 @@ has '_service' => (
 	required => 1,
 );
 
+has 'srcfiles' => (
+	is      => 'ro',
+	isa     => 'ArrayRef[Debian::Snapshot::File]',
+	lazy    => 1,
+	builder => '_srcfiles_builder',
+);
+
+sub _srcfiles_builder {
+	my $self    = shift;
+	my $package = $self->package;
+	my $version = $self->version;
+
+	my $json = $self->_service->_get_json("/mr/package/$package/$version/srcfiles?fileinfo=1");
+	my @files = map Debian::Snapshot::File->new(
+		hash      => $_->{hash},
+		_fileinfo => $json->{fileinfo}->{ $_->{hash} },
+		_service  => $self->_service,
+	), @{ $json->{result} };
+
+	return \@files;
+}
+
 sub binaries {
 	my $self = shift;
 
@@ -48,6 +71,25 @@ sub binary {
 	);
 }
 
+sub download {
+	my ($self, %p) = validated_hash(\@_,
+		archive_name => { isa => 'Str | RegexpRef', optional => 1, },
+		directory    => { isa => 'Str', },
+	);
+	my $package = $self->package;
+
+	my @local_files;
+	for (@{ $self->srcfiles }) {
+		push @local_files, $_->download(
+			defined $p{archive_name} ? (archive_name => $p{archive_name}) : (),
+			directory => $p{directory},
+			filename  => qr/^\Q$package\E_/,
+		);
+	}
+
+	return \@local_files;
+}
+
 __PACKAGE__->meta->make_immutable;
 1;
 
@@ -61,7 +103,7 @@ Debian::Snapshot::Package - information about a source package
 
 =head1 VERSION
 
-version 0.001
+version 0.002
 
 =head1 ATTRIBUTES
 
@@ -72,6 +114,11 @@ Name of the source package.
 =head2 version
 
 Version of the source package.
+
+=head2 srcfiles
+
+Arrayref containing L<Debian::Snapshot::File|Debian::Snapshot::File> objects
+for the source files of this package.
 
 =head1 METHODS
 
@@ -84,6 +131,22 @@ packages associated with this source package.
 
 Returns a L<Debian::Snapshot::Binary|Debian::Snapshot::Binary> object for the
 binary package C<$name> with the version C<$binary_version>.
+
+=head2 download(%params)
+
+Download the source package.
+
+=over
+
+=item archive_name
+
+Passed to L<< Debian::Snapshot::File->download|Debian::Snapshot::File/"download(%params)" >>.
+
+=item directory
+
+(Required.) Downloaded source files will be stored in this directory.
+
+=back
 
 =head1 SEE ALSO
 
