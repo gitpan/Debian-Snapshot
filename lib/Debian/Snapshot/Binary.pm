@@ -1,13 +1,10 @@
 package Debian::Snapshot::Binary;
 BEGIN {
-  $Debian::Snapshot::Binary::VERSION = '0.002';
+  $Debian::Snapshot::Binary::VERSION = '0.003';
 }
 # ABSTRACT: information on a binary package
 
-use Moose;
-use MooseX::Params::Validate;
-use MooseX::StrictConstructor;
-use namespace::autoclean;
+use Any::Moose;
 
 use Debian::Snapshot::File;
 use File::Spec;
@@ -68,32 +65,30 @@ sub _as_string {
 }
 
 sub download {
-	my ($self, %p) = validated_hash(\@_,
-		architecture => { isa => 'Str', },
-		archive_name => { isa => 'Str | RegexpRef', default => 'debian', },
-		directory    => { isa => 'Str', optional => 1, },
-		filename     => { isa => 'Str', optional => 1, },
-	);
+	my ($self, %p) = @_;
 
 	unless (exists $p{directory} || exists $p{filename}) {
 		die "Either 'directory' or 'file' parameter is required.";
 	}
 
-	my @binfiles = grep $_->{architecture} eq $p{architecture}
-	                    && $_->{file}->archive($p{archive_name}), @{ $self->binfiles };
+	my $architecture = ref($p{architecture}) eq 'Regexp' ? $p{architecture}
+	                 : qr/^\Q$p{architecture}\E$/;
 
-	my $desc = $self->_as_string . " ($p{architecture})";
-	die "Found no file for $desc" unless @binfiles;
-	die "Found more than one file for $desc" if @binfiles > 1;
+	my @binfiles = grep $_->{architecture} =~ $architecture, @{ $self->binfiles };
+	@binfiles = grep $_->{file}->archive($p{archive_name}), @binfiles if exists $p{archive_name};
+
+	die "Found no file for " . $self->_as_string unless @binfiles;
+	die "Found more than one file for " . $self->_as_string if @binfiles > 1;
 
 	return $binfiles[0]->{file}->download(
-		archive_name => $p{archive_name},
+		exists $p{archive_name} ? (archive_name => $p{archive_name}) : (),
 		defined $p{directory} ? (directory => $p{directory}) : (),
 		defined $p{filename} ? (filename => $p{filename}) : (),
+		exists $p{overwrite} ? (overwrite => $p{overwrite}) : (),
 	);
 }
 
-__PACKAGE__->meta->make_immutable;
+no Any::Moose;
 1;
 
 
@@ -106,7 +101,7 @@ Debian::Snapshot::Binary - information on a binary package
 
 =head1 VERSION
 
-version 0.002
+version 0.003
 
 =head1 ATTRIBUTES
 
@@ -131,7 +126,8 @@ An arrayref of hashrefs with the following keys:
 
 =item architecture
 
-Name of the architecture this package is for.
+Name of the architecture this package is for.  Can be a string or a regular
+expression.
 
 =item hash
 
@@ -155,12 +151,13 @@ A L<Debian::Snapshot::File|Debian::Snapshot::File> object for this file.
 
 =item archive_name
 
-Name of the archive to retrieve the package from.
-Defaults to C<"debian">.
+(Optional.) Name of the archive to retrieve the package from.
 
 =item directory
 
 =item filename
+
+=item overwrite
 
 Passed to L<< Debian::Snapshot::File->download|Debian::Snapshot::File/"download(%params)" >>.
 

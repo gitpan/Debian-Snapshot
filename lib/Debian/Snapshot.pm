@@ -1,12 +1,10 @@
 package Debian::Snapshot;
 BEGIN {
-  $Debian::Snapshot::VERSION = '0.002';
+  $Debian::Snapshot::VERSION = '0.003';
 }
 # ABSTRACT: interface to snapshot.debian.org
 
-use Moose;
-use MooseX::StrictConstructor;
-use namespace::autoclean;
+use Any::Moose;
 
 use Debian::Snapshot::Package;
 use JSON ();
@@ -100,7 +98,7 @@ sub package_versions {
 	return \@versions;
 }
 
-__PACKAGE__->meta->make_immutable;
+no Any::Moose;
 1;
 
 
@@ -113,7 +111,7 @@ Debian::Snapshot - interface to snapshot.debian.org
 
 =head1 VERSION
 
-version 0.002
+version 0.003
 
 =head1 SYNOPSIS
 
@@ -148,7 +146,7 @@ The L<LWP::UserAgent|LWP::UserAgent> object used to query the server.
 =head2 binaries($name, $version?)
 
 Returns an arrayref of L<Debian::Snapshot::Binary|Debian::Snapshot::Binary>
-object for the binary package named C<$name>.
+objects for the binary package named C<$name>.
 
 If the optional parameter C<$version> is present, only return binaries whose
 binary version matches C<$version> which might be either a string or a regular

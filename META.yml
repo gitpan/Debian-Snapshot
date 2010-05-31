@@ -6,21 +6,20 @@ build_requires:
   Test::More: 0.88
 configure_requires:
   ExtUtils::MakeMaker: 6.31
-generated_by: 'Dist::Zilla version 2.101150'
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 3.101461, CPAN::Meta::Converter version 2.101461'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
 name: Debian-Snapshot
-recommends: {}
 requires:
+  Any::Moose: 0
+  Digest::SHA1: 0
   File::Spec: 0
   JSON: 0
   LWP::UserAgent: 0
-  Moose: 0
-  MooseX::Params::Validate: 0
-  MooseX::StrictConstructor: 0
-  namespace::autoclean: 0
+  List::MoreUtils: 0
 resources:
   repository: git://github.com/aburch/Debian-Snapshot.git
-version: 0.002
+version: 0.003

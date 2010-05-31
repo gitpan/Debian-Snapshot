@@ -1,13 +1,10 @@
 package Debian::Snapshot::Package;
 BEGIN {
-  $Debian::Snapshot::Package::VERSION = '0.002';
+  $Debian::Snapshot::Package::VERSION = '0.003';
 }
 # ABSTRACT: information about a source package
 
-use Moose;
-use MooseX::Params::Validate;
-use MooseX::StrictConstructor;
-use namespace::autoclean;
+use Any::Moose;
 
 use Debian::Snapshot::Binary;
 
@@ -72,25 +69,32 @@ sub binary {
 }
 
 sub download {
-	my ($self, %p) = validated_hash(\@_,
-		archive_name => { isa => 'Str | RegexpRef', optional => 1, },
-		directory    => { isa => 'Str', },
-	);
+	my ($self, %p) = @_;
 	my $package = $self->package;
+
+	my $ver = $self->version;
+	# filenames do not include epoch
+	$ver =~ s/^[0-9]+://;
+
+	# upstream tarball does not include Debian revision.
+	# filename has either .orig or the Debian revision followed by a dot.
+	$ver =~ s/-([a-zA-Z0-9.+~]*)$//;
+	my $rev = $1;
 
 	my @local_files;
 	for (@{ $self->srcfiles }) {
 		push @local_files, $_->download(
 			defined $p{archive_name} ? (archive_name => $p{archive_name}) : (),
 			directory => $p{directory},
-			filename  => qr/^\Q$package\E_/,
+			filename  => qr/^\Q${package}_${ver}\E(?:\.orig|-\Q$rev.\E)/,
+			exists $p{overwrite} ? (overwrite => $p{overwrite}) : (),
 		);
 	}
 
 	return \@local_files;
 }
 
-__PACKAGE__->meta->make_immutable;
+no Any::Moose;
 1;
 
 
@@ -103,7 +107,7 @@ Debian::Snapshot::Package - information about a source package
 
 =head1 VERSION
 
-version 0.002
+version 0.003
 
 =head1 ATTRIBUTES
 
@@ -139,6 +143,8 @@ Download the source package.
 =over
 
 =item archive_name
+
+=item overwrite
 
 Passed to L<< Debian::Snapshot::File->download|Debian::Snapshot::File/"download(%params)" >>.
 

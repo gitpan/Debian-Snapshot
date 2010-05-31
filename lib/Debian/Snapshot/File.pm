@@ -1,15 +1,14 @@
 package Debian::Snapshot::File;
 BEGIN {
-  $Debian::Snapshot::File::VERSION = '0.002';
+  $Debian::Snapshot::File::VERSION = '0.003';
 }
 # ABSTRACT: information about a file
 
-use Moose;
-use MooseX::Params::Validate;
-use MooseX::StrictConstructor;
-use namespace::autoclean;
+use Any::Moose;
 
+use Digest::SHA1;
 use File::Spec;
+use List::MoreUtils qw( uniq );
 
 has 'hash' => (
 	is       => 'ro',
@@ -39,12 +38,21 @@ sub archive {
 	return 0 != grep $_ =~ $archive_name, @archives;
 }
 
+sub _checksum {
+	my ($self, $filename) = @_;
+
+	open my $fp, "<", $filename;
+	binmode $fp;
+
+	my $sha1 = Digest::SHA1->new->addfile($fp)->hexdigest;
+
+	close $fp;
+
+	return lc($self->hash) eq lc($sha1);
+}
+
 sub download {
-	my ($self, %p) = validated_hash(\@_,
-		archive_name => { isa => 'Str | RegexpRef', default => 'debian', },
-		directory    => { isa => 'Str', optional => 1, },
-		filename     => { isa => 'Str | RegexpRef', optional => 1, },
-	);
+	my ($self, %p) = @_;
 	my $hash = $self->hash;
 
 	unless (defined $p{directory} || defined $p{filename}) {
@@ -63,7 +71,13 @@ sub download {
 		$filename = File::Spec->catfile($p{directory}, $filename);
 	}
 
+	if (-f $filename) {
+		return $filename if $self->_checksum($filename);
+		die "$filename does already exist." unless $p{overwrite};
+	}
+
 	$self->_service->_get("/file/$hash", ':content_file' => $filename);
+	die "Wrong checksum for '$filename' (expected " . $self->hash . ")." unless $self->_checksum($filename);
 
 	return $filename;
 }
@@ -72,10 +86,14 @@ sub filename {
 	my ($self, $archive_name, $constraint) = @_;
 	my $hash = $self->hash;
 
-	$archive_name = qr/^\Q$archive_name\E$/ unless ref($archive_name) eq 'Regexp';
+	my @fileinfo = @{ $self->_fileinfo };
 
-	my @fileinfo = grep $_->{archive_name} =~ $archive_name, @{ $self->_fileinfo };
-	my @names    = map $_->{name}, @fileinfo;
+	if (defined $archive_name) {
+		$archive_name = qr/^\Q$archive_name\E$/ unless ref($archive_name) eq 'Regexp';
+		@fileinfo = grep $_->{archive_name} =~ $archive_name, @fileinfo;
+	}
+
+	my @names    = uniq map $_->{name}, @fileinfo;
 	die "No filename found for file $hash." unless @names;
 
 	if (defined $constraint) {
@@ -101,7 +119,7 @@ sub _fileinfo_builder {
 	$self->_service->_get_json("/mr/file/$hash/info")->{result};
 }
 
-__PACKAGE__->meta->make_immutable;
+no Any::Moose;
 1;
 
 
@@ -114,7 +132,7 @@ Debian::Snapshot::File - information about a file
 
 =head1 VERSION
 
-version 0.002
+version 0.003
 
 =head1 ATTRIBUTES
 
@@ -137,8 +155,7 @@ Download the file from the snapshot service.
 
 =item archive_name
 
-Name of the archive used when looking for the filename.
-Defaults to C<"debian">.
+(Optional.) Name of the archive used when looking for the filename.
 
 =item directory
 
@@ -149,11 +166,16 @@ The name of the directory where the file should be stored.
 The filename to use.  If this option is not specified the method C<filename>
 will be used to retrieve the filename.
 
+=item overwrite
+
+If true downloading will overwrite existing files if their hash differs from
+the expected value.  Defaults to false.
+
 =back
 
 At least one of C<directory> and C<filename> must be given.
 
-=head2 filename($archive_name, $constraint?)
+=head2 filename($archive_name?, $constraint?)
 
 Return the filename(s) of this file in the archive C<$archive_name> (which
 might be a string or a regular expression).  Will die if there is no known
